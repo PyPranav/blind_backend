@@ -8,8 +8,9 @@ import threading
 import base64
 import torch
 import json
-from transformers import DetrImageProcessor, DetrForObjectDetection
+from transformers import DetrImageProcessor, DetrForObjectDetection, BlipProcessor, BlipForConditionalGeneration
 from openai import OpenAI
+import requests
 
 
 
@@ -43,7 +44,7 @@ def analyze_image(coord,image, processor, model, result):
             result[str(coord)] = []
         result[str(coord)].append(model.config.id2label[label.item()])
 
-@app.route('/analyze', methods=['POST'])
+@app.route('/analyze', methods=['POST'])    
 def analyze():
     if request.method == 'POST':
         form = request.get_json()
@@ -94,8 +95,8 @@ def analyze():
                     threads.append(thread)
                     thread.start()
 
-                sub_image = sub_image.convert("RGB")
-                sub_image.save(f'./out/sub_image_{y}_{x}.jpeg')
+                # sub_image = sub_image.convert("RGB")
+                # sub_image.save(f'./out/sub_image_{y}_{x}.jpeg')
         for thread in threads:
             thread.join()
 
@@ -117,6 +118,13 @@ def llm_analyze():
 
     data = analyze()
     res = json.loads(data.data)
+
+    form = request.get_json()
+    try:
+        content = form['content'] 
+    except Exception as e:
+        print("Errrrrrorrrrrr",e)
+        content = 1
     # Example: reuse your existing OpenAI setup
 
     # Point to the local server
@@ -141,18 +149,52 @@ def llm_analyze():
         result+="The path ahead is blocked by "+"obstacle"+". You cannot move forward. "
 
     if left is not None:
-        result+="There is a "+"obstacle"+" to your close left. "
+        if content:
+            result+="There is a "+"obstacle"+" to your close left. "
     elif front is not None:
         result+="Path to your left is clear you may go to left. "
 
     if right is not None:
-        result+="There is a "+"obstacle"+" to your close right. "
+        if content:
+            result+="There is a "+"obstacle"+" to your close right. "
     elif front is not None and left is not None:
         result+="Path to your right is clear you may go to right. "
     end_time = time.time()
     execution_time = end_time - start_time
     print(f"utli Execution time: {execution_time:.2f} seconds")
     return jsonify({"response": result})
+
+@app.route('/cap', methods=['POST'])
+def cap():
+    if request.method == 'POST':
+        form = request.get_json()
+        image_base64 = form['image']
+
+        processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
+        model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large")
+
+        # img_url = 'https://storage.googleapis.com/sfr-vision-language-research/BLIP/demo.jpg' 
+        # raw_image = Image.open(requests.get(img_url, stream=True).raw).convert('RGB')
+        raw_image = Image.open(io.BytesIO(base64.b64decode(image_base64))).convert('RGB')
+
+# conditional image captioning
+        text = "An image of "
+        inputs = processor(raw_image, text, return_tensors="pt")
+
+        out = model.generate(**inputs)
+        print(processor.decode(out[0], skip_special_tokens=True))
+
+# unconditional image captioning
+        inputs = processor(raw_image, return_tensors="pt")
+
+        out = model.generate(**inputs)
+        # print(processor.decode(out[0], skip_special_tokens=True))
+        return jsonify({"response": processor.decode(out[0], skip_special_tokens=True)})
+
+
+
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)

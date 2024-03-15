@@ -1,83 +1,47 @@
-from transformers import DetrImageProcessor, DetrForObjectDetection
-import torch
-from PIL import Image
+# Adapted from OpenAI's Vision example 
+from openai import OpenAI
+import base64
 import requests
 
-import time
+# Point to the local server
+client = OpenAI(base_url="http://localhost:1234/v1", api_key="not-needed")
 
-start_time = time.time()  # Capture start time
+# Ask the user for a path on the filesystem:
+# path = input("Enter a local filepath to an image: ")
 
-# Your code to be timed goes here
+# Read the image and encode it to base64:
+base64_image = ""
+try:
+  image = open("chair1.jpeg", "rb").read()
+  base64_image = base64.b64encode(image).decode("utf-8")
+except:
+  print("Couldn't read the image. Make sure the path is correct and the file exists.")
+  exit()
 
+completion = client.chat.completions.create(
+  model="local-model", # not used
+  messages=[
+    {
+      "role": "system",
+      "content": "This is a chat between a user and an assistant. The assistant is helping the user to describe an image.",
+    },
+    {
+      "role": "user",
+      "content": [
+        {"type": "text", "text": "What’s in this image?"},
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": f"data:image/jpeg;base64,{base64_image}"
+          },
+        },
+      ],
+    }
+  ],
+  max_tokens=1000,
+  stream=True
+)
 
-
-
-url = "chutiya 1.jpeg"
-image = Image.open(url)
-width, height = image.size
-
-# Calculate the new size (half the width and height)
-new_width = width 
-new_height = height 
-
-# Resize the image
-image1 = image.resize((new_width, new_height))
-
-url = "chutiya 2.jpeg"
-image = Image.open(url)
-width, height = image.size
-
-# Calculate the new size (half the width and height)
-new_width = width 
-new_height = height 
-
-# Resize the image
-image2 = image.resize((new_width, new_height))
-
-url = "chutiya 3.jpeg"
-image = Image.open(url)
-width, height = image.size
-
-# Calculate the new size (half the width and height)
-new_width = width 
-new_height = height 
-
-# Resize the image
-image3 = image.resize((new_width, new_height))
-
-url = "chutiya.jpeg"
-image = Image.open(url)
-width, height = image.size
-
-# Calculate the new size (half the width and height)
-new_width = width 
-new_height = height 
-
-# Resize the image
-image4 = image.resize((new_width, new_height))
-
-# you can specify the revision tag if you don't want the timm dependency
-processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-50", revision="no_timm")
-model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50", revision="no_timm")
-
-for im in [image1,image2, image3, image4]:
-    inputs = processor(images=im, return_tensors="pt")
-    outputs = model(**inputs)
-
-    # convert outputs (bounding boxes and class logits) to COCO API
-    # let's only keep detections with score > 0.9
-    target_sizes = torch.tensor([im.size[::-1]])
-    results = processor.post_process_object_detection(outputs, target_sizes=target_sizes, threshold=0.9)[0]
-
-    for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
-        box = [round(i, 2) for i in box.tolist()]
-        print(
-                f"Detected {model.config.id2label[label.item()]} with confidence "
-                f"{round(score.item(), 3)} at location {box}"
-            )
-
-end_time = time.time()  # Capture end time
-
-execution_time = end_time - start_time
-
-print(f"Execution time: {execution_time:.2f} seconds")
+for chunk in completion:
+  if chunk.choices[0].delta.content:
+    print(chunk.choices[0].delta.content, end="", flush=True)
