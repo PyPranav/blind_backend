@@ -7,13 +7,13 @@ The project aims to assist visually impaired individuals in navigation through a
 Clone the project
 
 ```bash
-  git clone https://github.com/PyPranav/blind_backend
+  git clone https://github.com/PyPranav/xeno_backend
 ```
 
 Go to the project directory
 
 ```bash
-  cd blind_backend
+  cd xeno_backend
 ```
 
 Install dependencies
