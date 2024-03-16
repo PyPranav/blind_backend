@@ -28,5 +28,5 @@ Start the server
   python app.py
 ```
 
-Note: to connect the app to the back you will either have to host the backend or expose your locally running backend using <a href="https://ngrok.com/download">ngrock</a>
+Note: to connect the app to the backend you will either have to host the backend or expose your locally running backend using <a href="https://ngrok.com/download">ngrock</a>
 
